@@ -145,6 +145,12 @@ message IsBootstrappedResponse {
 
 message AllocIDRequest {
     RequestHeader header = 1;
+
+    enum IDType {
+        DEFAULT = 0;
+        SERVER_ID = 1;
+    }
+    IDType id_type = 2;
 }
 
 message AllocIDResponse {
