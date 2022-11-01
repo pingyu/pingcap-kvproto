@@ -791,8 +791,7 @@ enum APIVersion {
     // TxnKV keys start with `x{keyspace id}`, `m`, or `t`.
     //
     // RawKV keys must be in `default` CF and all start with `r{keyspace id}` prefix,
-    // where the keyspace id is in varint format (little endian), whose bytes expect
-    // the last one always sets the most significant bit to 1.
+    // where the keyspace id is 3 bytes long (little endian).
     //
     // The last byte in the raw value must be a meta flag. For example:
     //
@@ -802,15 +801,22 @@ enum APIVersion {
     // | 0x12 0x34 0x56 | 0x00 (0b00000000) |
     // --------------------------------------
     //
-    // As shown in the example below, the least significant bit of the meta flag
-    // indicates whether the value contains 8 bytes expire ts at the very left to the
-    // meta flags.
+    // Bit 0 of meta flags is for expire timestamp. If set, the value contains 8 bytes
+    // expire ts at the very left to the meta flags.
     //
     // --------------------------------------------------------------------------------
     // | User value     | Expire Ts                               | Meta flags        |
     // --------------------------------------------------------------------------------
     // | 0x12 0x34 0x56 | 0x00 0x00 0x00 0x00 0x00 0x00 0xff 0xff | 0x01 (0b00000001) |
     // --------------------------------------------------------------------------------
+    //
+    // Bit 1 is for deletion. If set, the entry is logical deleted.
+    //
+    // ---------------------
+    // | Meta flags        |
+    // ---------------------
+    // | 0x02 (0b00000010) |
+    // ---------------------
     //
     // V2 server accpets V2 requests and V1 txn requests that statrts with TiDB key
     // prefix (`m` and `t`).
