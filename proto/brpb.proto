@@ -3,6 +3,7 @@ package backup;
 
 import "kvrpcpb.proto";
 import "errorpb.proto";
+import "metapb.proto";
 import "encryptionpb.proto";
 import "gogoproto/gogo.proto";
 import "rustproto.proto";
@@ -152,7 +153,8 @@ message Error {
     }
 }
 
-// sst files compression algorithm
+// sst files or log files compression algorithm
+// for log files, unknown means not use compression algorithm
 enum CompressionType {
     UNKNOWN = 0;
     LZ4 = 1;
@@ -201,6 +203,10 @@ message BackupRequest {
     // 2. "v2": the generated SST files are encoded with api-v2, can be restored
     //    to TiKV clusters whose api version is set to v2.
     kvrpcpb.APIVersion dst_api_version = 15;
+
+    // with checkpoint, some subintervals of the range have been backed up and recorded.
+    // only the remaining sub ranges of the range need to be backed up this time.
+    repeated kvrpcpb.KeyRange sub_ranges = 16;
 }
 
 message StreamBackupTaskInfo {
@@ -216,6 +222,9 @@ message StreamBackupTaskInfo {
     // The table filter of the task.
     // Only for displaying the task info.
     repeated string table_filter = 5;
+
+    // compression type
+    CompressionType compression_type = 6;
 
     // The last timestamp of the task has been updated. 
     // This is a simple solution for unfrequent config changing: 
@@ -347,8 +356,21 @@ message BackupResponse {
     kvrpcpb.APIVersion api_version = 5;
 }
 
+message CheckAdminRequest {
+}
+
+message CheckAdminResponse {
+    Error error = 1;
+    metapb.Region region = 2;
+    bool has_pending_admin = 3;
+}
+
 service Backup {
     rpc backup(BackupRequest) returns (stream BackupResponse) {}
+    // CheckPendingAdminOp used for snapshot backup. before we start snapshot for a TiKV. 
+    // we need stop all schedule first and make sure all in-flight schedule has finished.  
+    // this rpc check all pending conf change for leader.
+    rpc CheckPendingAdminOp(CheckAdminRequest) returns (stream CheckAdminResponse) {}
 }
 
 // ExternalStorage is a service for using a cloud backend from StorageBackend to store files.
@@ -457,10 +479,13 @@ message DataFileInfo {
     uint64 min_begin_ts_in_default_cf = 15;
 
     // Offset of the partition. compatible with V1 and V2.
-    uint64 offset = 16;
+    uint64 range_offset = 16;
 
-    // The file length after compressed
-    uint64 compress_length = 17;
+    // The range length of the merged file, if it exists.
+    uint64 range_length = 17;
+
+    // The compression type for the file.
+    CompressionType compression_type = 18;
 
     // It may support encrypting at future.
     reserved "iv";
