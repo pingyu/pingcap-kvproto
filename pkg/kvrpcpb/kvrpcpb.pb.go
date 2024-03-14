@@ -877,10 +877,11 @@ type PrewriteRequest struct {
 	// for_update_ts constriants that should be checked when prewriting a pessimistic transaction.
 	// See https://github.com/tikv/tikv/issues/14311
 	ForUpdateTsConstraints []*PrewriteRequest_ForUpdateTSConstraint `protobuf:"bytes,16,rep,name=for_update_ts_constraints,json=forUpdateTsConstraints,proto3" json:"for_update_ts_constraints,omitempty"`
-	TxnFileChunks          []uint64                                 `protobuf:"varint,100,rep,packed,name=txn_file_chunks,json=txnFileChunks,proto3" json:"txn_file_chunks,omitempty"`
-	XXX_NoUnkeyedLiteral   struct{}                                 `json:"-"`
-	XXX_unrecognized       []byte                                   `json:"-"`
-	XXX_sizecache          int32                                    `json:"-"`
+	// Reserved for file based transaction.
+	TxnFileChunks        []uint64 `protobuf:"varint,100,rep,packed,name=txn_file_chunks,json=txnFileChunks,proto3" json:"txn_file_chunks,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *PrewriteRequest) Reset()         { *m = PrewriteRequest{} }
@@ -1701,7 +1702,8 @@ type TxnHeartBeatRequest struct {
 	// Start timestamp of the large transaction.
 	StartVersion uint64 `protobuf:"varint,3,opt,name=start_version,json=startVersion,proto3" json:"start_version,omitempty"`
 	// The new TTL the sender would like.
-	AdviseLockTtl        uint64   `protobuf:"varint,4,opt,name=advise_lock_ttl,json=adviseLockTtl,proto3" json:"advise_lock_ttl,omitempty"`
+	AdviseLockTtl uint64 `protobuf:"varint,4,opt,name=advise_lock_ttl,json=adviseLockTtl,proto3" json:"advise_lock_ttl,omitempty"`
+	// Reserved for file based transaction.
 	IsTxnFile            bool     `protobuf:"varint,100,opt,name=is_txn_file,json=isTxnFile,proto3" json:"is_txn_file,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1881,7 +1883,8 @@ type CheckTxnStatusRequest struct {
 	// (see https://github.com/pingcap/tidb/issues/42937 for details). This field is necessary
 	// because the old versions of clients cannot handle some results returned from TiKV correctly.
 	// For new versions, this field should always be set to true.
-	VerifyIsPrimary      bool     `protobuf:"varint,9,opt,name=verify_is_primary,json=verifyIsPrimary,proto3" json:"verify_is_primary,omitempty"`
+	VerifyIsPrimary bool `protobuf:"varint,9,opt,name=verify_is_primary,json=verifyIsPrimary,proto3" json:"verify_is_primary,omitempty"`
+	// Reserved for file based transaction.
 	IsTxnFile            bool     `protobuf:"varint,100,opt,name=is_txn_file,json=isTxnFile,proto3" json:"is_txn_file,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2254,7 +2257,8 @@ type CommitRequest struct {
 	// All keys in the transaction (to be committed).
 	Keys [][]byte `protobuf:"bytes,3,rep,name=keys,proto3" json:"keys,omitempty"`
 	// Timestamp for the end of the transaction. Must be greater than `start_version`.
-	CommitVersion        uint64   `protobuf:"varint,4,opt,name=commit_version,json=commitVersion,proto3" json:"commit_version,omitempty"`
+	CommitVersion uint64 `protobuf:"varint,4,opt,name=commit_version,json=commitVersion,proto3" json:"commit_version,omitempty"`
+	// Reserved for file based transaction.
 	IsTxnFile            bool     `protobuf:"varint,100,opt,name=is_txn_file,json=isTxnFile,proto3" json:"is_txn_file,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2799,7 +2803,8 @@ type BatchRollbackRequest struct {
 	// Identify the transaction to be rolled back.
 	StartVersion uint64 `protobuf:"varint,2,opt,name=start_version,json=startVersion,proto3" json:"start_version,omitempty"`
 	// The keys to rollback.
-	Keys                 [][]byte `protobuf:"bytes,3,rep,name=keys,proto3" json:"keys,omitempty"`
+	Keys [][]byte `protobuf:"bytes,3,rep,name=keys,proto3" json:"keys,omitempty"`
+	// Reserved for file based transaction.
 	IsTxnFile            bool     `protobuf:"varint,100,opt,name=is_txn_file,json=isTxnFile,proto3" json:"is_txn_file,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -3099,7 +3104,8 @@ type ResolveLockRequest struct {
 	CommitVersion uint64     `protobuf:"varint,3,opt,name=commit_version,json=commitVersion,proto3" json:"commit_version,omitempty"`
 	TxnInfos      []*TxnInfo `protobuf:"bytes,4,rep,name=txn_infos,json=txnInfos,proto3" json:"txn_infos,omitempty"`
 	// Only resolve specified keys.
-	Keys                 [][]byte `protobuf:"bytes,5,rep,name=keys,proto3" json:"keys,omitempty"`
+	Keys [][]byte `protobuf:"bytes,5,rep,name=keys,proto3" json:"keys,omitempty"`
+	// Reserved for file based transaction.
 	IsTxnFile            bool     `protobuf:"varint,100,opt,name=is_txn_file,json=isTxnFile,proto3" json:"is_txn_file,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -6540,11 +6546,12 @@ type LockInfo struct {
 	// The time elapsed since last update of lock wait info when waiting.
 	// It's used in timeout errors. 0 means unknown or not applicable.
 	// It can be used to help the client decide whether to try resolving the lock.
-	DurationToLastUpdateMs uint64   `protobuf:"varint,11,opt,name=duration_to_last_update_ms,json=durationToLastUpdateMs,proto3" json:"duration_to_last_update_ms,omitempty"`
-	IsTxnFile              bool     `protobuf:"varint,100,opt,name=is_txn_file,json=isTxnFile,proto3" json:"is_txn_file,omitempty"`
-	XXX_NoUnkeyedLiteral   struct{} `json:"-"`
-	XXX_unrecognized       []byte   `json:"-"`
-	XXX_sizecache          int32    `json:"-"`
+	DurationToLastUpdateMs uint64 `protobuf:"varint,11,opt,name=duration_to_last_update_ms,json=durationToLastUpdateMs,proto3" json:"duration_to_last_update_ms,omitempty"`
+	// Reserved for file based transaction.
+	IsTxnFile            bool     `protobuf:"varint,100,opt,name=is_txn_file,json=isTxnFile,proto3" json:"is_txn_file,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *LockInfo) Reset()         { *m = LockInfo{} }
@@ -8599,8 +8606,9 @@ func (m *MvccInfo) GetValues() []*MvccValue {
 }
 
 type TxnInfo struct {
-	Txn                  uint64   `protobuf:"varint,1,opt,name=txn,proto3" json:"txn,omitempty"`
-	Status               uint64   `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	Txn    uint64 `protobuf:"varint,1,opt,name=txn,proto3" json:"txn,omitempty"`
+	Status uint64 `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	// Reserved for file based transaction.
 	IsTxnFile            bool     `protobuf:"varint,100,opt,name=is_txn_file,json=isTxnFile,proto3" json:"is_txn_file,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
